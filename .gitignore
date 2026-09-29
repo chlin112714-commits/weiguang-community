@@ -1,0 +1,22 @@
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Python
+backend/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Database and local settings
+backend/data/*.db
+.env
+.venv/
+
+# Editors and systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+frontend/.npm-cache/
