@@ -35,3 +35,34 @@
 2. 通知中心与关注关系。
 3. 管理后台、举报和内容审核。
 4. PostgreSQL、Docker、固定域名和 HTTPS 正式部署。
+
+## 当前保存点
+
+更新时间：2026-09-30 09:20
+
+- 当前代码工作区干净，已经推送到 GitHub。
+- GitHub 仓库：
+  `https://github.com/chlin112714-commits/weiguang-community`
+- 最新提交：`30fd66e Add free cloud deployment guide`
+- 本地 SQLite 数据库正常运行，共有 4 条历史帖子和最新结构。
+- 数据库备份：
+  - `backend/data/app-before-community-20260930-084958.db`
+  - `backend/data/app-before-phase2-20260930-090034.db`
+- 免费云部署配置已经完成：
+  - `Dockerfile`
+  - `render.yaml`
+  - `DEPLOYMENT.md`
+  - PostgreSQL 驱动和兼容层
+- Render 和 Neon 还没有完成登录和创建服务。
+- 当前临时公网地址仍在运行：
+  `https://rear-guild-appearing-belts.trycloudflare.com`
+- 临时地址依赖本机、FastAPI 和 cloudflared 持续运行。
+
+## 下次继续
+
+1. 使用 Google 登录 Render，或在外部浏览器登录 GitHub。
+2. 在 Neon 创建免费 PostgreSQL 数据库。
+3. 在 Render 使用公开 Git 仓库地址部署。
+4. 配置 `DATABASE_URL`。
+5. 迁移现有 SQLite 数据。
+6. 测试正式 Render 网址。
