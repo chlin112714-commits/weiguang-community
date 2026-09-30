@@ -1,172 +1,284 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
-
-function formatTime(value) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
+import { apiRequest } from "./api";
+import HomePage from "./components/HomePage";
+import PostDetailPage from "./components/PostDetailPage";
+import ProfilePage from "./components/ProfilePage";
+import { getRoute, postPath, profilePath } from "./utils";
 
 export default function App() {
-  const [messages, setMessages] = useState([]);
-  const [form, setForm] = useState({ name: "", content: "" });
-  const [status, setStatus] = useState("正在连接后端...");
-  const [error, setError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [route, setRoute] = useState(getRoute);
+  const [filterTag, setFilterTag] = useState("");
+  const [authMode, setAuthMode] = useState("login");
+  const [authForm, setAuthForm] = useState({
+    username: "",
+    display_name: "",
+    password: "",
+  });
+  const [authBusy, setAuthBusy] = useState(false);
+  const [notice, setNotice] = useState(null);
+
+  const showMessage = useCallback((text, tone = "success") => {
+    setNotice({ text, tone });
+  }, []);
 
   useEffect(() => {
-    async function loadMessages() {
+    const handleRouteChange = () => setRoute(getRoute());
+    window.addEventListener("hashchange", handleRouteChange);
+    return () => window.removeEventListener("hashchange", handleRouteChange);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadUser() {
       try {
-        const response = await fetch(`${API_BASE}/api/messages`);
-        if (!response.ok) {
-          throw new Error("暂时无法读取留言");
+        const user = await apiRequest("/api/auth/me");
+        if (active) {
+          setCurrentUser(user);
         }
-        const data = await response.json();
-        setMessages(data);
-        setStatus("前后端与数据库连接正常");
-      } catch (loadError) {
-        setStatus("后端尚未启动");
-        setError(loadError.message);
+      } catch (error) {
+        if (active) {
+          showMessage(error.message, "error");
+        }
       }
     }
 
-    loadMessages();
-  }, []);
+    loadUser();
+    return () => {
+      active = false;
+    };
+  }, [showMessage]);
 
-  function updateField(event) {
-    const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
+  useEffect(() => {
+    if (!notice) {
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setNotice(null), 4200);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [route.name, route.postId, route.username]);
+
+  function navigate(hash) {
+    if (window.location.hash === hash) {
+      setRoute(getRoute());
+      return;
+    }
+    window.location.hash = hash;
   }
 
-  async function submitMessage(event) {
+  function goHome(anchor = null) {
+    navigate("#/");
+    if (anchor) {
+      window.setTimeout(() => {
+        document.getElementById(anchor)?.scrollIntoView({ behavior: "smooth" });
+      }, 80);
+    }
+  }
+
+  function openPost(postId) {
+    navigate(postPath(postId));
+  }
+
+  function openProfile(username) {
+    if (!username) {
+      return;
+    }
+    navigate(profilePath(username));
+  }
+
+  function openTag(tag) {
+    setFilterTag(tag);
+    goHome("feed");
+  }
+
+  function requireAuth() {
+    showMessage("请先登录或注册后再继续", "info");
+    goHome("join");
+  }
+
+  function updateAuthField(event) {
+    const { name, value } = event.target;
+    setAuthForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function submitAuth(event) {
     event.preventDefault();
-    setError("");
-    setIsSubmitting(true);
-
+    setAuthBusy(true);
     try {
-      const response = await fetch(`${API_BASE}/api/messages`, {
+      const endpoint =
+        authMode === "register" ? "/api/auth/register" : "/api/auth/login";
+      const payload =
+        authMode === "register"
+          ? authForm
+          : { username: authForm.username, password: authForm.password };
+      const user = await apiRequest(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: payload,
       });
-
-      if (!response.ok) {
-        const problem = await response.json();
-        const detail = Array.isArray(problem.detail)
-          ? problem.detail[0]?.msg
-          : problem.detail;
-        throw new Error(detail || "留言发送失败");
-      }
-
-      const newMessage = await response.json();
-      setMessages((current) => [newMessage, ...current]);
-      setForm({ name: "", content: "" });
-      setStatus("数据已写入 SQLite，并成功返回页面");
-    } catch (submitError) {
-      setError(submitError.message);
+      setCurrentUser(user);
+      setAuthForm({ username: "", display_name: "", password: "" });
+      showMessage(
+        authMode === "register"
+          ? user.role === "admin"
+            ? "注册成功。你是社区首位管理员。"
+            : "注册成功，欢迎加入社区。"
+          : `欢迎回来，${user.display_name}`,
+      );
+    } catch (error) {
+      showMessage(error.message, "error");
     } finally {
-      setIsSubmitting(false);
+      setAuthBusy(false);
+    }
+  }
+
+  async function logout() {
+    setAuthBusy(true);
+    try {
+      await apiRequest("/api/auth/logout", { method: "POST" });
+      setCurrentUser(null);
+      setFilterTag("");
+      goHome();
+      showMessage("已安全退出登录");
+    } catch (error) {
+      showMessage(error.message, "error");
+    } finally {
+      setAuthBusy(false);
     }
   }
 
   return (
-    <main className="page-shell">
-      <section className="hero">
-        <div className="eyebrow">
-          <span className="status-dot" />
-          React + FastAPI + SQLite
-        </div>
-        <h1>我的第一个全栈网站</h1>
-        <p>
-          输入一条留言，它会经过 React 页面、Python 后端和数据库，再回到这里。
-        </p>
-        <div className="flow" aria-label="技术流程">
-          <span>浏览器</span>
-          <b>→</b>
-          <span>React</span>
-          <b>→</b>
-          <span>FastAPI</span>
-          <b>→</b>
-          <span>SQLite</span>
-        </div>
-      </section>
-
-      <section className="workspace">
-        <form className="message-form" onSubmit={submitMessage}>
-          <div>
-            <p className="section-label">发布留言</p>
-            <h2>让整条链路动起来</h2>
-          </div>
-
-          <label>
-            你的名字
-            <input
-              name="name"
-              value={form.name}
-              onChange={updateField}
-              maxLength={40}
-              placeholder="例如：小林"
-              required
-            />
-          </label>
-
-          <label>
-            留言内容
-            <textarea
-              name="content"
-              value={form.content}
-              onChange={updateField}
-              maxLength={500}
-              rows={5}
-              placeholder="写下你想说的内容..."
-              required
-            />
-          </label>
-
-          <button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "正在保存..." : "保存到数据库"}
+    <div className="site-shell">
+      <header className="site-header">
+        <div className="topbar">
+          <button className="brand brand-button" type="button" onClick={() => goHome()}>
+            <span className="brand-mark">微</span>
+            <span>
+              <strong>微光社区</strong>
+              <small>把想法留在这里</small>
+            </span>
           </button>
 
-          <p className="system-status" aria-live="polite">
-            <span className="status-dot" />
-            {status}
-          </p>
-          {error && <p className="error-message">{error}</p>}
-        </form>
+          <nav className="main-nav" aria-label="主导航">
+            <button type="button" onClick={() => goHome("feed")}>
+              社区动态
+            </button>
+            <button type="button" onClick={() => goHome("about")}>
+              关于社区
+            </button>
+            {currentUser ? (
+              <button
+                type="button"
+                onClick={() => openProfile(currentUser.username)}
+              >
+                个人主页
+              </button>
+            ) : (
+              <button type="button" onClick={() => goHome("join")}>
+                加入我们
+              </button>
+            )}
+          </nav>
 
-        <section className="message-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="section-label">数据库记录</p>
-              <h2>最新留言</h2>
-            </div>
-            <span className="message-count">{messages.length} 条</span>
+          <div className="header-account">
+            {currentUser ? (
+              <>
+                <button
+                  className="header-user header-user-button"
+                  type="button"
+                  onClick={() => openProfile(currentUser.username)}
+                >
+                  <span className="mini-dot" />
+                  {currentUser.display_name}
+                </button>
+                <button
+                  className="button button-ghost button-small"
+                  type="button"
+                  onClick={logout}
+                  disabled={authBusy}
+                >
+                  退出
+                </button>
+              </>
+            ) : (
+              <button
+                className="button button-dark button-small"
+                type="button"
+                onClick={() => goHome("join")}
+              >
+                登录 / 注册
+              </button>
+            )}
           </div>
+        </div>
+      </header>
 
-          {messages.length === 0 ? (
-            <div className="empty-state">
-              <strong>这里还是空的</strong>
-              <p>发布第一条留言后，它会从 SQLite 返回并显示在这里。</p>
-            </div>
-          ) : (
-            <div className="message-list">
-              {messages.map((message) => (
-                <article className="message-card" key={message.id}>
-                  <header>
-                    <strong>{message.name}</strong>
-                    <time dateTime={message.created_at}>
-                      {formatTime(message.created_at)}
-                    </time>
-                  </header>
-                  <p>{message.content}</p>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-      </section>
-    </main>
+      <main id="top">
+        {route.name === "home" && (
+          <HomePage
+            key={`home-${currentUser?.id ?? "guest"}`}
+            currentUser={currentUser}
+            authMode={authMode}
+            setAuthMode={setAuthMode}
+            authForm={authForm}
+            onAuthFieldChange={updateAuthField}
+            onSubmitAuth={submitAuth}
+            onLogout={logout}
+            authBusy={authBusy}
+            onOpenProfile={openProfile}
+            onOpenPost={openPost}
+            onRequireAuth={requireAuth}
+            showMessage={showMessage}
+            filterTag={filterTag}
+            onFilterTagChange={setFilterTag}
+          />
+        )}
+
+        {route.name === "post" && (
+          <PostDetailPage
+            key={`post-${route.postId}-${currentUser?.id ?? "guest"}`}
+            postId={route.postId}
+            currentUser={currentUser}
+            onBack={() => goHome("feed")}
+            onOpenProfile={openProfile}
+            onTagClick={openTag}
+            onRequireAuth={requireAuth}
+            showMessage={showMessage}
+          />
+        )}
+
+        {route.name === "profile" && (
+          <ProfilePage
+            key={`profile-${route.username}-${currentUser?.id ?? "guest"}`}
+            username={route.username}
+            currentUser={currentUser}
+            onBack={() => goHome("feed")}
+            onOpenPost={openPost}
+            onOpenProfile={openProfile}
+            onTagClick={openTag}
+            onRequireAuth={requireAuth}
+            onCurrentUserUpdated={setCurrentUser}
+            showMessage={showMessage}
+          />
+        )}
+      </main>
+
+      {notice && (
+        <div className={`notice ${notice.tone}`} role="status">
+          <span>{notice.text}</span>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            aria-label="关闭提示"
+          >
+            ×
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

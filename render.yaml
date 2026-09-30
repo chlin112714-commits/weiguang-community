@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: weiguang-community
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: APP_COOKIE_SECURE
+        value: true
