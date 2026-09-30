@@ -66,3 +66,44 @@
 4. 配置 `DATABASE_URL`。
 5. 迁移现有 SQLite 数据。
 6. 测试正式 Render 网址。
+
+## 晚上继续
+
+更新时间：2026-09-30 09:30
+
+- GitHub 网络已经恢复测试。
+- Render 注册过程中暂时卡住，用户计划晚上继续。
+- 当前临时公网网站仍然正常：
+  `https://rear-guild-appearing-belts.trycloudflare.com`
+- 当前数据库运行正常，最新备份为：
+  `backend/data/app-checkpoint-20260930-0920.db`
+- 下次从 Render 注册开始，优先使用 Google 或邮箱注册。
+- GitHub 已经可以直接使用，代码和部署配置都已经推送。
+
+## 最新保存点
+
+更新时间：2026-09-30 晚
+
+- Vercel 免费账号已经注册并登录。
+- Vercel 团队：`weiguang-community`
+- Vercel 项目已经成功部署到生产环境：
+  `https://weiguang-community.vercel.app`
+- 部署保护已经关闭，Vercel 侧允许公开访问。
+- 当前网络把 `vercel.app` 解析到了错误 IP，所以国内手机暂时打不开该地址，这不是部署失败。
+- 当前可用的临时公网地址：
+  `https://colon-test-virgin-grams.trycloudflare.com`
+- 临时地址依赖本机、FastAPI 和 cloudflared 持续运行。
+- Render 免费方案要求银行卡验证，因此没有采用。
+- 已经新增 Vercel 部署配置：
+  - `api/index.py`
+  - `vercel.json`
+  - `requirements.txt`
+  - `.vercelignore`
+
+## 永久访问下一步
+
+1. 准备腾讯云或阿里云账号。
+2. 购买一台长期在线服务器；香港节点不需要 ICP，国内节点通常需要备案。
+3. 购买并绑定域名。
+4. 使用 Docker 部署当前项目。
+5. 迁移 SQLite 数据，并开启 HTTPS 和自动更新。
